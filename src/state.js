@@ -8,9 +8,13 @@ export const state = {
     },
     shapes: [],
     selectedId: null,
+    clipboard: null,
+    verticesMode: {
+        createNew: false
+    },
     canvas: {
-        width: 900,
-        height: 520
+        width: 854,
+        height: 480
     },
     background: {
         url: "",

@@ -16,6 +16,15 @@ pixiPreview.init();
 
 const matterPreview = new MatterPreview(matterContainer);
 
+const testState = {
+    hasStatic: false,
+    hasDynamic: false
+};
+
+let isMatterVisible = true;
+let autoStatic = false;
+let autoStaticCounter = 0;
+
 const ui = setupUI(state, {
     onToolParamChange() {
         pixiPreview.refreshAll();
@@ -24,6 +33,30 @@ const ui = setupUI(state, {
         pixiPreview.updateDisplayFromModel(model);
         ui.updateSelection(model);
     },
+    onCopySelection() {
+        const selected = pixiPreview.getSelectedModel();
+        if (!selected) {
+            return;
+        }
+        state.clipboard = {
+            type: selected.type,
+            params: JSON.parse(JSON.stringify(selected.params || {})),
+            angle: selected.angle,
+            scaleX: selected.scaleX ?? 1,
+            scaleY: selected.scaleY ?? 1
+        };
+        ui.updatePasteAvailability();
+    },
+    onNewVerticesShape() {
+        state.currentTool = "vertices";
+        state.verticesMode.createNew = true;
+        ui.updateToolSelection();
+    },
+    onEditVerticesShape() {
+        state.currentTool = "vertices";
+        state.verticesMode.createNew = false;
+        ui.updateToolSelection();
+    },
     canResizeCanvas() {
         return state.shapes.length === 0;
     },
@@ -31,8 +64,12 @@ const ui = setupUI(state, {
         if (state.shapes.length !== 0) {
             return;
         }
-        const nextWidth = Math.max(200, Math.min(2000, Math.round(width)));
-        const nextHeight = Math.max(200, Math.min(2000, Math.round(height)));
+        if (width < 1 || height < 1) {
+            window.alert("Canvas size must be at least 1.");
+            return;
+        }
+        const nextWidth = Math.max(1, Math.min(2000, Math.round(width)));
+        const nextHeight = Math.max(1, Math.min(2000, Math.round(height)));
         state.canvas.width = nextWidth;
         state.canvas.height = nextHeight;
         applyCanvasSize();
@@ -48,15 +85,75 @@ const ui = setupUI(state, {
             code: exportBodyCode(state.shapes)
         };
     },
-    onTest() {
+    onTestStatic() {
+        if (testState.hasDynamic) {
+            return;
+        }
         matterPreview.renderBody(state.shapes);
+        testState.hasStatic = true;
+        ui.updateTestButtons(testState);
+    },
+    onTestDynamic() {
+        if (testState.hasStatic || autoStatic) {
+            return;
+        }
+        matterPreview.renderDynamicBody(state.shapes);
+        testState.hasDynamic = true;
+        ui.updateTestButtons(testState);
+    },
+    onClearBody() {
+        matterPreview.clearTestBodies();
+        testState.hasStatic = false;
+        testState.hasDynamic = false;
+        autoStatic = false;
+        ui.updateTestButtons(testState);
+        ui.updateAutoStatic(false);
+    },
+    onToggleAutoStatic(enabled) {
+        if (testState.hasDynamic) {
+            return;
+        }
+        autoStatic = enabled;
+        if (autoStatic) {
+            testState.hasStatic = true;
+            matterPreview.renderBody(state.shapes);
+        }
+        ui.updateTestButtons(testState);
+    },
+    onToggleMatter() {
+        isMatterVisible = !isMatterVisible;
+        ui.updateMatterVisibility(isMatterVisible);
+    },
+    onResetProject() {
+        const ok = window.confirm("Reset everything? This will clear all shapes, tests, and background.");
+        if (!ok) {
+            return;
+        }
+        state.clipboard = null;
+        state.verticesMode.createNew = false;
+        state.background.url = "";
+        pixiPreview.clearAll();
+        matterPreview.clearTestBodies();
+        matterPreview.setBoundsActive(false);
+        testState.hasStatic = false;
+        testState.hasDynamic = false;
+        autoStatic = false;
+        ui.updateTestButtons(testState);
+        ui.updatePasteAvailability();
+        ui.updateCanvas();
+        ui.updateAutoStatic(false);
+    },
+    onOpenManual() {
+        ui.openManual();
     }
 });
 
 applyCanvasSize();
+ui.updateMatterVisibility(isMatterVisible);
 
 function handleSelectionChange(model) {
     ui.updateSelection(model);
+    ui.updatePasteAvailability();
 }
 
 function handleShapeChange(model) {
@@ -66,7 +163,26 @@ function handleShapeChange(model) {
 function handleShapeListChange() {
     ui.updateSelection(pixiPreview.getSelectedModel());
     ui.updateCanvas();
+    ui.updatePasteAvailability();
+    matterPreview.setBoundsActive(state.shapes.length > 0);
 }
+
+function tick() {
+    if (autoStatic && !testState.hasDynamic) {
+        autoStaticCounter += 1;
+        if (autoStaticCounter >= 15) {
+            autoStaticCounter = 0;
+            matterPreview.renderBody(state.shapes);
+            testState.hasStatic = true;
+            ui.updateTestButtons(testState);
+        }
+    } else {
+        autoStaticCounter = 0;
+    }
+    window.requestAnimationFrame(tick);
+}
+
+window.requestAnimationFrame(tick);
 
 function applyCanvasSize() {
     const width = state.canvas.width;
@@ -77,4 +193,5 @@ function applyCanvasSize() {
     matterContainer.style.height = `${height}px`;
     pixiPreview.resize(width, height);
     matterPreview.resize(width, height);
+    matterPreview.setBoundsActive(state.shapes.length > 0);
 }

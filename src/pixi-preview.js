@@ -1,5 +1,5 @@
 import { createRegularPolygonPoints } from "./geometry.js";
-import { createShapeModel, getScaledParams } from "./model.js";
+import { createShapeModel, getScaledParams, cloneShapeModel } from "./model.js";
 
 export class PixiPreview {
     constructor(container, state, callbacks) {
@@ -16,7 +16,7 @@ export class PixiPreview {
 
     init() {
         this.app = new window.PIXI.Application({
-            background: 0xf6f2e8,
+            background: 0xffffff,
             antialias: true,
             resizeTo: this.container
         });
@@ -74,9 +74,31 @@ export class PixiPreview {
     }
 
     onKeyDown(event) {
+        const tagName = event.target && event.target.tagName;
+        if (tagName === "INPUT" || tagName === "TEXTAREA") {
+            return;
+        }
         if (event.key === "Delete" && this.state.selectedId) {
             this.removeShape(this.state.selectedId);
             this.callbacks.onSelectionChange(null);
+            return;
+        }
+        if (!this.state.selectedId) {
+            return;
+        }
+        const step = event.shiftKey ? 10 : 1;
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            this.nudgeSelection(0, -step);
+        } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            this.nudgeSelection(0, step);
+        } else if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            this.nudgeSelection(-step, 0);
+        } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            this.nudgeSelection(step, 0);
         }
     }
 
@@ -85,6 +107,10 @@ export class PixiPreview {
             return;
         }
         const position = event.data.global;
+        if (this.state.currentTool === "paste") {
+            this.addPastedShapeAtPosition(position);
+            return;
+        }
         if (this.state.currentTool === "vertices") {
             this.addVertexPoint(position);
             return;
@@ -102,8 +128,9 @@ export class PixiPreview {
     }
 
     addVertexPoint(position) {
-        let model = this.state.shapes.find((shape) => shape.type === "vertices");
-        if (!model) {
+        const focused = this.getSelectedModel();
+        let model = this.state.shapes.find((shape) => shape.type === "vertices" && shape.id === (focused && focused.id));
+        if (!model || this.state.verticesMode.createNew) {
             const params = this.state.toolParams.vertices || { chamfer: 0 };
             model = createShapeModel("vertices", params, position);
             model.params.vertices = [{ x: 0, y: 0 }];
@@ -114,6 +141,7 @@ export class PixiPreview {
             model.params.usePerVertex = false;
             this.state.shapes.push(model);
             this.createDisplayForModel(model);
+            this.state.verticesMode.createNew = false;
         } else {
             const local = this.getLocalDelta(position, model.position, model.angle);
             const x = local.x / (model.scaleX ?? 1);
@@ -127,6 +155,34 @@ export class PixiPreview {
         this.selectModel(model.id);
         this.updateDisplayFromModel(model);
         this.callbacks.onShapeListChange(this.state.shapes);
+    }
+
+    addPastedShapeAtPosition(position) {
+        if (!this.state.clipboard) {
+            return;
+        }
+        const model = cloneShapeModel(this.state.clipboard, position);
+        if (model.type === "vertices") {
+            const vertices = model.params.vertices || [];
+            if (!model.params.vertexChamfers || model.params.vertexChamfers.length !== vertices.length) {
+                model.params.vertexChamfers = vertices.map(() => model.params.chamfer || 0);
+            }
+        }
+        this.state.shapes.push(model);
+        this.createDisplayForModel(model);
+        this.selectModel(model.id);
+        this.callbacks.onShapeListChange(this.state.shapes);
+    }
+
+    nudgeSelection(dx, dy) {
+        const model = this.getSelectedModel();
+        if (!model) {
+            return;
+        }
+        model.position.x += dx;
+        model.position.y += dy;
+        this.updateDisplayFromModel(model);
+        this.callbacks.onShapeChange(model);
     }
 
     removeShape(id) {
@@ -485,5 +541,21 @@ export class PixiPreview {
 
     refreshAll() {
         this.state.shapes.forEach((model) => this.updateDisplayFromModel(model));
+    }
+
+    clearAll() {
+        this.shapeMap.forEach((display) => {
+            display.destroy({ children: true });
+        });
+        this.shapeMap.clear();
+        this.state.shapes = [];
+        this.state.selectedId = null;
+        if (this.backgroundSprite) {
+            this.backgroundSprite.destroy();
+            this.backgroundSprite = null;
+        }
+        this.gizmo.visible = false;
+        this.callbacks.onSelectionChange(null);
+        this.callbacks.onShapeListChange(this.state.shapes);
     }
 }

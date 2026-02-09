@@ -1,153 +1,65 @@
-# Matter.js Rigid Body Editor
+# Matter.js Body Editor
 
-A lightweight visual editor for creating **usable Matter.js rigid body shapes**, built with PixiJS rendering and a Windows-classic inspired UI.
+A lightweight, offline-friendly visual editor for building **usable Matter.js compound bodies**.  
+PixiJS renders the preview, Matter.js renders the physics preview, and the UI uses a classic Windows look.
 
-This editor was created because existing tools often export incorrect or unusable vertex data. The goal of this project is simple:
+## Features
+- Rectangle, Circle, Polygon, and Vertices tools
+- Vertices editing with Ctrl-drag
+- Non-uniform scaling (hold Shift)
+- Copy/Paste inside the app (no system clipboard)
+- Per-vertex chamfer with Apply controls
+- Static and Dynamic physics tests
+- Auto Refresh Static (periodic rebuild)
+- JSON and Matter.js code export
+- Offline use (local `vendor/` scripts and fonts)
 
-> **Draw → preview → export → use immediately in Matter.js**
+## Quick Start
+Open `index.html` in a browser. No build step required.
 
-No broken coordinates. No manual fixing.
+## Controls
+- **Create shape:** select a tool, click in Pixi preview  
+- **Move:** drag the shape  
+- **Rotate:** drag the rotation handle (disabled for circles)  
+- **Scale:** drag the scale handle (hold Shift for free scaling)  
+- **Nudge:** arrow keys (Shift = larger step)  
+- **Delete:** remove selected shape  
 
----
+## Vertices Workflow
+- Use the **Vertices** tool to add points  
+- Hold **Ctrl** and drag a point to move it  
+- **Node Tools**
+  - **New Vertices Shape**: start a new vertices object
+  - **Edit Existing Vertices**: edit the currently focused vertices object
 
-## ✨ Features
+## Canvas & Preview
+- Set **Width/Height** and click **Apply Size**
+- Size changes are allowed only when the scene is empty or has only a background
+- **Reset Project** clears all shapes and tests and enables resizing again
+- **Hide Matter Preview** toggles the Matter panel
 
-* Visual rigid body editor for Matter.js
-* Polygon / vertex editing
-* Circle primitives
-* Direction/orientation controls
-* Per-vertex corner rounding
-* Live physics preview (Matter.js renderer)
-* PixiJS high-performance canvas rendering
-* Windows 98 style UI (98.css aesthetic)
-* Background image import for tracing shapes
-* One-click export of Matter.js-ready code
+## Testing (Matter)
+- **Test Body (Static):** builds a non-moving compound body
+- **Test Body (Dynamic):** builds a gravity-driven body
+- **Auto Refresh Static:** periodically rebuilds the static body  
+  - Mutually exclusive with Dynamic
+- **Clear Body:** removes test bodies (keeps boundaries)
 
-Exported shapes are designed to work directly with:
+## Export
+Two outputs are provided:
+- **JSON data** (for your own pipelines)
+- **Code** ready to paste into Matter.js
 
-```js
-Matter.Bodies.fromVertices(...)
-```
+## Folder Layout
+- `index.html` — app shell
+- `app.css` — layout and styles
+- `src/` — logic modules
+- `vendor/` — offline PixiJS and Matter.js
+- `fonts/` — local 98.css fonts
 
-without requiring manual correction.
+## Notes
+- Only rectangles preview chamfer in Pixi (other shapes show chamfer in Matter).
+- Background images are displayed at 1:1 scale in Pixi.
 
----
-
-## 🎯 Why this exists
-
-As of **Feb 8, 2026**, popular online editors such as:
-
-[https://samgeven.github.io/matter-vertices-editor/](https://samgeven.github.io/matter-vertices-editor/)
-
-export vertex data with incorrect coordinate mapping (X/Y values collapse or become invalid), making the shapes unusable in real Matter.js simulations.
-
-This editor was built to solve exactly that problem:
-
-✔ Correct coordinate space
-✔ Accurate vertex export
-✔ Immediate compatibility with Matter.js
-
----
-
-## 🖥 Demo
-
-Live demo:
-
-[https://mossback360.github.io/](https://mossback360.github.io/)
-
-No installation required — runs entirely in the browser.
-
----
-
-## 🚀 Usage
-
-1. Open the demo in your browser
-2. Import a background image (optional)
-3. Create shapes:
-
-   * Add vertices
-   * Adjust corners
-   * Modify orientation
-4. Preview physics behavior
-5. Export generated Matter.js code
-
-Example exported output:
-
-```js
-const body = Matter.Bodies.fromVertices(
-  x,
-  y,
-  vertices,
-  options
-);
-```
-
-Drop it directly into your project.
-
----
-
-## 🔧 Tech Stack
-
-* PixiJS — rendering
-* Matter.js — physics preview
-* 98.css — retro UI styling
-* Vanilla JavaScript
-
----
-
-##  Current Limitations
-
-* No magic-wand auto tracing tool (planned or undecided)
-* Manual vertex placement required
-* Focused on 2D rigid body workflows only
-
----
-
-##  Design Philosophy
-
-This tool prioritizes:
-
-* Correct physics geometry
-* Immediate usability
-* Lightweight browser workflow
-* Visual clarity over feature bloat
-
-It’s meant to be a **practical bridge between art assets and physics simulation**, not a full modeling suite.
-
----
-
-##  Roadmap Ideas
-
-Possible future improvements:
-
-* Auto edge tracing / magic wand
-* SVG import cleanup
-* Vertex snapping
-* Constraint preview
-* Shape presets
-
----
-
-##  Contributing
-
-Feedback, bug reports, and improvements are welcome.
-
-If you find exported vertices behaving incorrectly in Matter.js — please open an issue.
-
----
-
-##  License
-
-Choose your license here.
-
----
-
-##  Credits
-
-Inspired by the need for reliable Matter.js tooling.
-
-Built with vibe coding and stubborn refusal to accept broken vertex exports.
-
----
-
-Enjoy building physics shapes that actually work.
+## License
+Add your license here.

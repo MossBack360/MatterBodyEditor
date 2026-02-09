@@ -7,12 +7,25 @@ export function setupUI(state, callbacks) {
     const importButton = document.querySelector("#import-image");
     const imageInput = document.querySelector("#image-input");
     const exportButton = document.querySelector("#export-body");
-    const testButton = document.querySelector("#test-body");
+    const testStaticButton = document.querySelector("#test-body-static");
+    const testDynamicButton = document.querySelector("#test-body-dynamic");
+    const clearBodyButton = document.querySelector("#clear-body");
+    const autoStaticInput = document.querySelector("#auto-static");
     const exportOutput = document.querySelector("#export-output");
     const exportCodeOutput = document.querySelector("#export-code-output");
     const canvasWidthInput = document.querySelector("#canvas-width");
     const canvasHeightInput = document.querySelector("#canvas-height");
     const applyCanvasButton = document.querySelector("#apply-canvas-size");
+    const pasteToolButton = document.querySelector("#paste-tool");
+    const newVerticesButton = document.querySelector("#new-vertices-shape");
+    const editVerticesButton = document.querySelector("#edit-vertices-shape");
+    const toggleMatterButton = document.querySelector("#toggle-matter");
+    const resetButton = document.querySelector("#reset-project");
+    const manualButton = document.querySelector("#open-manual");
+    const manualDialog = document.querySelector("#manual-dialog");
+    const manualClose = document.querySelector("#close-manual");
+    const previewBody = document.querySelector(".preview-body");
+    const matterFieldset = document.querySelector("#matter-fieldset");
 
     toolButtons.forEach((button) => {
         button.addEventListener("click", () => {
@@ -39,7 +52,22 @@ export function setupUI(state, callbacks) {
         exportCodeOutput.value = data.code;
     });
 
-    testButton.addEventListener("click", () => callbacks.onTest());
+    testStaticButton.addEventListener("click", () => callbacks.onTestStatic());
+    testDynamicButton.addEventListener("click", () => callbacks.onTestDynamic());
+    clearBodyButton.addEventListener("click", () => callbacks.onClearBody());
+    autoStaticInput.addEventListener("change", () => {
+        callbacks.onToggleAutoStatic(autoStaticInput.checked);
+    });
+    newVerticesButton.addEventListener("click", () => callbacks.onNewVerticesShape());
+    editVerticesButton.addEventListener("click", () => callbacks.onEditVerticesShape());
+    toggleMatterButton.addEventListener("click", () => callbacks.onToggleMatter());
+    resetButton.addEventListener("click", () => callbacks.onResetProject());
+    manualButton.addEventListener("click", () => callbacks.onOpenManual());
+    if (manualClose) {
+        manualClose.addEventListener("click", () => {
+            manualDialog.close();
+        });
+    }
 
     canvasWidthInput.value = state.canvas.width;
     canvasHeightInput.value = state.canvas.height;
@@ -53,6 +81,8 @@ export function setupUI(state, callbacks) {
     renderToolParams(state, toolParamsContainer, callbacks);
     renderSelectionParams(state, selectionParamsContainer, null, callbacks);
     updateCanvasControls(state, callbacks, canvasWidthInput, canvasHeightInput, applyCanvasButton);
+    updatePasteAvailability(state, pasteToolButton);
+    updateTestButtons({ hasStatic: false, hasDynamic: false }, testStaticButton, testDynamicButton, clearBodyButton, autoStaticInput);
 
     return {
         updateSelection(model) {
@@ -61,11 +91,41 @@ export function setupUI(state, callbacks) {
         updateCanvas() {
             updateCanvasControls(state, callbacks, canvasWidthInput, canvasHeightInput, applyCanvasButton);
         },
+        updateToolSelection() {
+            updateToolButtons(state, toolButtons);
+        },
         updateExport(text) {
             exportOutput.value = text;
         },
         updateExportCode(text) {
             exportCodeOutput.value = text;
+        },
+        updatePasteAvailability() {
+            updatePasteAvailability(state, pasteToolButton);
+        },
+        updateTestButtons(testState) {
+            updateTestButtons(testState, testStaticButton, testDynamicButton, clearBodyButton, autoStaticInput);
+        },
+        updateAutoStatic(enabled) {
+            autoStaticInput.checked = enabled;
+        },
+        updateMatterVisibility(isVisible) {
+            if (isVisible) {
+                matterFieldset.style.display = "";
+                previewBody.classList.remove("matter-hidden");
+                toggleMatterButton.textContent = "Hide Matter Preview";
+            } else {
+                matterFieldset.style.display = "none";
+                previewBody.classList.add("matter-hidden");
+                toggleMatterButton.textContent = "Show Matter Preview";
+            }
+        },
+        openManual() {
+            if (manualDialog && manualDialog.showModal) {
+                manualDialog.showModal();
+            } else {
+                window.alert("Manual:\n1. Select a shape tool and click inside the Pixi preview to create a shape.\n2. Drag to move. Use the rotation handle to rotate. Use the scale handle to resize (hold Shift for free scaling).\n3. Vertices: click to add points. Hold Ctrl to drag a single point.\n4. Use Test Body buttons to preview in Matter. Clear Body resets test bodies.\n5. Export generates JSON and code for copy & paste.");
+            }
         }
     };
 }
@@ -150,6 +210,17 @@ function renderSelectionParams(state, container, modelOverride, callbacks) {
 
     const params = getScaledParams(model);
     container.appendChild(createReadonlyRow("Type", model.type));
+    const copyRow = document.createElement("div");
+    copyRow.className = "param-row";
+    const copyLabel = document.createElement("label");
+    copyLabel.textContent = "Copy";
+    const copyButton = document.createElement("button");
+    copyButton.id = "copy-selection";
+    copyButton.textContent = "Copy";
+    copyButton.addEventListener("click", () => callbacks.onCopySelection());
+    copyRow.appendChild(copyLabel);
+    copyRow.appendChild(copyButton);
+    container.appendChild(copyRow);
     container.appendChild(
         createNumberRow("X", model.position.x, -9999, 9999, (value) => {
             model.position.x = value;
@@ -279,7 +350,7 @@ function createRangeRow(label, value, min, max, step, onChange) {
 function renderChamferSection(model, callbacks, count) {
     const wrapper = document.createElement("div");
     const note = document.createElement("div");
-    note.textContent = "Note: Only rectangles preview chamfer in Pixi.";
+    note.textContent = "Note: Only rectangles preview chamfer in Pixi. Pixi does not render chamfer for other shapes.";
     wrapper.appendChild(note);
 
     const globalRow = createRangeRowStaged(
@@ -378,6 +449,17 @@ function updateCanvasControls(state, callbacks, widthInput, heightInput, applyBu
     applyButton.disabled = !canResize;
     widthInput.value = state.canvas.width;
     heightInput.value = state.canvas.height;
+}
+
+function updatePasteAvailability(state, pasteButton) {
+    pasteButton.disabled = !state.clipboard;
+}
+
+function updateTestButtons(testState, staticButton, dynamicButton, clearButton, autoStaticInput) {
+    staticButton.disabled = testState.hasDynamic;
+    dynamicButton.disabled = testState.hasStatic || autoStaticInput.checked;
+    autoStaticInput.disabled = testState.hasDynamic;
+    clearButton.disabled = !testState.hasStatic && !testState.hasDynamic && !autoStaticInput.checked;
 }
 
 function createReadonlyRow(label, value) {
